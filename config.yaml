@@ -141,7 +141,14 @@ music:
   # auto = rate every track in music/ (energy, drops, tempo, length fit)
   # and pick the best, rotating between runs. Or put a filename here.
   pick: auto
+  # When one track is too short, the next is chained with this crossfade (seconds).
   crossfade: 3.0
+  # Fade-out at the very end of the montage (seconds).
+  fade_out: 2.0
+  # Preferred tempo range; tracks outside it get a lower auto-pick score.
+  bpm_range: [110, 175]
+  # Energy jump (0-1) between the 2 bars before and after a downbeat that counts as a drop.
+  drop_min_jump: 0.22
 
 # ---------- montage length ----------
 montage:
@@ -151,6 +158,9 @@ montage:
   length: auto
   min_clip: 3.0
   max_clip: 10.0
+  # Clip length in calm vs high-energy music, before the platform/style pace.
+  calm_clip: 7.0
+  busy_clip: 3.5
   # Avoid clips from the same recording more than this many in a row.
   max_same_source_in_row: 1
 

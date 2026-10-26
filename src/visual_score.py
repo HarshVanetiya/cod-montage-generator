@@ -31,6 +31,11 @@ from .utils import MontageError
 REGION_NAMES = ["kill_feed", "kill_banner", "medals", "hitmarker"]
 # Per-region features, stored as f"{region}_{feature}"
 REGION_FEATURES = ["stable", "red", "gold", "white"]
+# Regions that also get a same-sized neighbouring "reference" box. A real HUD popup
+# changes only inside its box; background changes (a wall holding still, an
+# explosion) show up next to it too, so they are subtracted out.
+REF_REGIONS = ["kill_feed", "kill_banner", "medals"]
+REF_FEATURES = ["stable", "red", "gold"]
 GLOBAL_FEATURES = ["motion", "bright", "contrast", "sat", "gstable"]
 STABLE_FRAMES = 3          # an edge must persist this many frames to count as HUD
 SMALL = (160, 90)          # whole-frame analysis size (landscape)
@@ -41,6 +46,25 @@ def _region_px(box: list[float], w: int, h: int) -> tuple[int, int, int, int]:
     x0, y0 = int(x * w), int(y * h)
     x1, y1 = max(x0 + 2, int((x + bw) * w)), max(y0 + 2, int((y + bh) * h))
     return x0, y0, min(x1, w), min(y1, h)
+
+
+def _reference_box(box: list[float], others: list[list[float]]) -> list[float]:
+    """A same-sized box next to `box` (right, left, below, above) that stays on screen
+    and mostly avoids the other HUD regions."""
+    x, y, w, h = box
+
+    def overlap(a, b) -> float:
+        ix = max(0.0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0]))
+        iy = max(0.0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+        return ix * iy / (a[2] * a[3])
+
+    options = [[x + w, y, w, h], [x - w, y, w, h], [x, y + h, w, h], [x, y - h, w, h]]
+    inside = [o for o in options if o[0] >= 0 and o[1] >= 0 and o[0] + o[2] <= 1.0001
+              and o[1] + o[3] <= 1.0001]
+    for o in inside:
+        if all(overlap(o, b) < 0.3 for b in others):
+            return o
+    return inside[0] if inside else box
 
 
 def _color_fracs(hsv: np.ndarray) -> tuple[float, float, float]:
@@ -65,11 +89,17 @@ def frame_features(proxy: Path, regions: dict[str, list[float]], label: str = ""
     w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     boxes = {name: _region_px(regions[name], w, h) for name in REGION_NAMES if name in regions}
+    others = [regions[n] for n in REGION_NAMES if n in regions]
+    refs = {name: _region_px(_reference_box(regions[name], [o for o in others if o is not regions[name]]),
+                             w, h)
+            for name in REF_REGIONS if name in regions}
     small_size = SMALL if w >= h else (SMALL[1], SMALL[0])
 
     cols: dict[str, list[float]] = {f"{r}_{f}": [] for r in boxes for f in REGION_FEATURES}
+    cols.update({f"{r}_ref{f}": [] for r in refs for f in REF_FEATURES})
     cols.update({g: [] for g in GLOBAL_FEATURES})
-    edge_hist = {r: deque(maxlen=STABLE_FRAMES) for r in list(boxes) + ["_global"]}
+    edge_hist = {r: deque(maxlen=STABLE_FRAMES)
+                 for r in list(boxes) + [f"{r}_ref" for r in refs] + ["_global"]}
     prev_small = None
 
     with tqdm(total=total, unit="fr", desc=f"  video {label}"[:34], leave=False,
@@ -104,6 +134,13 @@ def frame_features(proxy: Path, regions: dict[str, list[float]], label: str = ""
                 cols[f"{name}_red"].append(red)
                 cols[f"{name}_gold"].append(gold)
                 cols[f"{name}_white"].append(white)
+            for name, (x0, y0, x1, y1) in refs.items():
+                edges = cv2.Canny(gray[y0:y1, x0:x1], 80, 160) > 0
+                edge_hist[f"{name}_ref"].append(edges)
+                red, gold, _ = _color_fracs(cv2.cvtColor(frame[y0:y1, x0:x1], cv2.COLOR_BGR2HSV))
+                cols[f"{name}_refstable"].append(_stable_frac(edge_hist[f"{name}_ref"]))
+                cols[f"{name}_refred"].append(red)
+                cols[f"{name}_refgold"].append(gold)
             bar.update(1)
     cap.release()
 
@@ -132,6 +169,17 @@ def _trailing(x: np.ndarray, k: int, fn) -> np.ndarray:
     return fn(win, axis=1)
 
 
+def _step_up(x: np.ndarray, k: int) -> np.ndarray:
+    """How far x jumps *and stays* above everything in the previous k frames:
+    min(x[t:t+k]) - max(x[t-k:t]). Popups step up instantly and hold; background
+    drift creeps up a little per frame and scores near zero."""
+    if len(x) == 0:
+        return x
+    tail = np.concatenate([x, np.full(k - 1, x[-1])])
+    ahead = np.lib.stride_tricks.sliding_window_view(tail, k).min(axis=1)
+    return np.maximum(0, ahead - _trailing(x, k, np.max))
+
+
 def _robust_z(x: np.ndarray, floor: float) -> np.ndarray:
     med = np.median(x)
     scale = max(np.median(np.abs(x - med)) * 1.4826, floor)
@@ -157,22 +205,25 @@ def detect_events(feats: dict, det: dict) -> dict:
     fps = float(feats["fps"])
     n = len(feats["motion"])
     half = max(1, int(round(0.5 * fps)))
-    one = max(1, int(round(fps)))
+    step = max(2, int(round(0.3 * fps)))
 
-    # How much the whole picture "froze" - subtracted so standing still
+    # How much the whole picture suddenly "froze" - subtracted so standing still
     # doesn't look like HUD popping up everywhere.
-    g_rise = np.maximum(0, feats["gstable"] - _trailing(feats["gstable"], half, np.min))
+    g_rise = _step_up(feats["gstable"], step)
 
     kill = np.zeros(n, np.float32)
     per_region = {}
     for r in ("kill_feed", "kill_banner", "medals"):
         if f"{r}_stable" not in feats:
             continue
-        st = feats[f"{r}_stable"]
-        appear = np.maximum(0, st - _trailing(st, half, np.min) - g_rise)
-        color = feats[f"{r}_red"] + feats[f"{r}_gold"]
-        color_pop = np.maximum(0, color - _trailing(color, one, np.median))
-        z = np.maximum(_robust_z(appear, 0.01), _robust_z(color_pop, 0.004))
+        appear = _step_up(feats[f"{r}_stable"], step)
+        color_pop = _step_up(feats[f"{r}_red"] + feats[f"{r}_gold"], step)
+        if f"{r}_refstable" in feats:  # subtract what happened right next to the box
+            appear -= _step_up(feats[f"{r}_refstable"], step)
+            color_pop -= _step_up(feats[f"{r}_refred"] + feats[f"{r}_refgold"], step)
+        appear = np.maximum(0, appear - g_rise)
+        color_pop = np.maximum(0, color_pop)
+        z = np.maximum(_robust_z(appear, 0.01), _robust_z(color_pop, 0.02))
         per_region[r] = z
         kill = np.maximum(kill, z)
 
@@ -215,10 +266,26 @@ def exclusion_flags(feats: dict, det: dict) -> np.ndarray:
     still = feats["motion"] < det["static_motion"]
     static = _sustained(still, int(det["static_min_seconds"] * fps))
 
-    # Death / spectate screens in CoD are usually washed-out grey.
+    # Death / spectate screens in CoD switch to washed-out grey *instantly*.
+    # Grey scenery (snow, smoke, concrete) fades in gradually, so only grey
+    # stretches that start with a sudden saturation drop count.
     sat = feats["sat"]
     med_sat = np.median(sat) if n else 0
-    desat = _sustained(sat < det["desat_ratio"] * med_sat, int(1.0 * fps))
+    grey = _sustained(sat < det["desat_ratio"] * med_sat, int(1.0 * fps))
+    desat = np.zeros_like(grey)
+    one, i = max(1, int(fps)), 0
+    while i < n:
+        if grey[i]:
+            j = i
+            while j < n and grey[j]:
+                j += 1
+            before = sat[max(0, i - one):i]
+            start = sat[i:min(j, i + max(1, int(0.3 * fps)))].mean()
+            if len(before) and start < 0.6 * before.max():
+                desat[i:j] = True
+            i = j
+        else:
+            i += 1
 
     return dark | flat | static | desat
 

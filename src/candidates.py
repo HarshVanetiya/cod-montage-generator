@@ -25,7 +25,7 @@ from . import audio_score, visual_score
 from .config import Config
 from .utils import MontageError, fmt_time, log, read_json, write_json
 
-ANALYSIS_VERSION = 1
+ANALYSIS_VERSION = 2
 MAX_STORED = 200        # candidates kept in candidates.json (top N are flagged for review)
 
 
@@ -134,11 +134,15 @@ def score_video(cfg: Config, meta: dict, feats: dict) -> dict:
              + bonus)
     score[excluded] = 0
 
+    # A kill popup can look like a hard cut to PySceneDetect; real cuts (to a
+    # killcam, menu or respawn) practically never land on a kill.
+    cuts = [c for c in feats["cuts"] if all(abs(c - t) > 0.6 for t in times)]
+
     _write_signals_csv(cfg.work / "videos" / meta["id"] / "signals.csv",
                        audio, kill_sec, hit_sec, bonus, excluded, score)
     return {"n_sec": n_sec, "audio": audio, "kills": kills, "hits": events["hits"],
             "kill_sec": kill_sec, "hit_sec": hit_sec, "bonus": bonus,
-            "excluded": excluded, "score": score, "cuts": feats["cuts"]}
+            "excluded": excluded, "score": score, "cuts": cuts}
 
 
 def _write_signals_csv(path, audio, kill_sec, hit_sec, bonus, excluded, score) -> None:

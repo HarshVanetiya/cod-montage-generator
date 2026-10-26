@@ -132,15 +132,29 @@ src/audio_score.py   stage 2: loudness + gunfire density per second (chunked WAV
 src/visual_score.py  stage 2: per-frame HUD features, kill/hitmarker events, menu/death exclusion
 src/candidates.py    stage 2: per-second score, clip building, ranking -> candidates.json
 src/review.py        stage 3: contact sheets, index.md, selections (auto/claude/manual)
+src/music.py         stage 4: track analysis (beats, downbeats, drops, sections), auto-pick,
+                     soundtrack plan (start before first drop, phrase-aligned end, chaining)
+src/edl.py           stage 4: auto length, beat-synced timeline with roles -> edl.json
 src/regions.py       helper: draws HUD regions on real frames (review/regions/)
 src/utils.py         logging, json cache, ffmpeg progress runner
 ```
 Cache layout: `work/videos/<id>/{meta.json, proxy.mp4, audio.wav, audio.npz, visual.npz,
 analysis.json, signals.csv}`, `work/ingest.json`, `work/candidates.json` (with `run_id`),
-`work/sheets/<hash>.jpg` (sheet cache), `work/selections.json`.
+`work/sheets/<hash>.jpg` (sheet cache), `work/selections.json`, `work/music/<track>.{json,wav}`
+(track analysis), `work/music/history.json` (rotation), `work/beatmap.json`, `work/edl.json`.
+All beatmap/EDL times are montage-timeline seconds; `src_in/src_out` are recording seconds.
 
 Detection design: kills are found without game-specific templates. HUD overlays stay
 still while the world moves, so a jump in *stable edges* inside a HUD region (minus any
 whole-frame freeze) means a new HUD element appeared; red/gold colour pops add evidence.
-Thresholds are robust z-scores per recording. Raw per-frame features are cached and keyed
-by the regions, so tuning thresholds never re-reads video.
+Popups must *step up and hold* (min of the next 0.3 s above max of the previous 0.3 s), so
+background drifting into a box doesn't count, and the same change in a neighbouring
+reference box is subtracted. Grey death screens must start abruptly. Scene cuts within
+0.6 s of a kill are ignored (popups can look like cuts). Thresholds are robust z-scores per
+recording. Raw per-frame features are cached and keyed by the regions, so tuning
+thresholds never re-reads video.
+
+Music design: librosa beats, extended across quiet intros/outros at the regression tempo.
+Drops = beats where the next 2 bars are much louder than the previous 2 (refined to the
+sharpest single-beat rise); drops fix the bar phase (they start on bar 1). EDL slot
+roles: build (before first drop), hook, drop, peak, breather, finale.

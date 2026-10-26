@@ -4,16 +4,16 @@ Drop your Call of Duty recordings into a folder, add some royalty‑free music, 
 command and get a finished montage synced to the beat. Works with **CoD Mobile**,
 Modern Warfare, Black Ops and Warzone recordings, and it all runs on your own PC.
 
-> **Build status:** Stages 1–3 of 5 are done (reading recordings, finding highlights,
-> reviewing clips). Music sync, effects and rendering come in the next stages.
+> **Build status:** Stages 1–4 of 5 are done (reading recordings, finding highlights,
+> reviewing clips, music sync and the edit timeline). Effects and rendering come next.
 
 | Stage | What it does | Status |
 |---|---|---|
 | 1. Ingest | Reads your recordings, makes small analysis copies | ✅ done |
 | 2. Detect | Finds kills, multi-kills and intense fights | ✅ done |
 | 3. Review | Contact sheets of the best clips (optional Claude review) | ✅ done |
-| 4. Music + edit | Beat detection, picks the song, builds the timeline | ⏳ next |
-| 5. Effects + render | Slow‑mo, zooms, transitions, colour, final video | ⏳ |
+| 4. Music + edit | Beat detection, picks the song, builds the timeline | ✅ done |
+| 5. Effects + render | Slow‑mo, zooms, transitions, colour, final video | ⏳ next |
 
 ---
 
@@ -105,8 +105,20 @@ the key moment.
 
 ### Music choice
 With no `--music`, the tool listens to every track in `music\` and picks the one that
-fits best (energy, drops, tempo, length), rotating so you don't get the same song every
-time. It never downloads music.
+fits best (energy, drops, tempo, length; `cinematic` prefers tracks with big build-ups
+and drops, `hype` prefers loud fast ones), rotating so you don't get the same song every
+time. It never downloads music. `--music` also accepts part of a name: `--music chill`.
+
+How the edit follows the music:
+- The song starts a few bars before its first big **drop**, and your **best clip** lands on
+  that drop (within 8 s on YouTube, about 2 s on Shorts/Reels/TikTok).
+- **Every cut is on a beat**, and each clip is shifted so a **kill hits a beat**.
+- Loud parts of the song get quicker cuts, calm parts longer clips. Later drops get the
+  best clips that are left, and your **second-best clip closes** the video.
+- Multi-kill clips are kept long enough to show the whole streak.
+- If one song is too short, a second one is mixed in with a crossfade on a downbeat.
+- With `--length auto`, the length depends on how much good footage you have. If there isn't
+  enough for the platform's usual length, the video comes out shorter rather than padded.
 
 ### Running one stage at a time (for testing)
 ```powershell
@@ -114,6 +126,8 @@ python -m src.main --stage check    # just check FFmpeg / GPU
 python -m src.main --stage ingest   # just read recordings and make proxies
 python -m src.main --stage detect   # just find highlight candidates
 python -m src.main --stage review   # just make the contact sheets
+python -m src.main --stage music    # just pick the song and find beats/drops
+python -m src.main --stage edl      # just build the timeline (work\edl.json)
 python -m src.main --stage regions  # draw the kill-detection boxes on your footage
 python -m src.main --force          # redo everything, ignoring the cache
 python -m src.main -v               # show extra detail

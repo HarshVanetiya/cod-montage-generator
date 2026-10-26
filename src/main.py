@@ -20,7 +20,7 @@ STAGES = ["check", "ingest", "detect", "review", "music", "edl", "render"]
 # Helpers that can be run with --stage but aren't part of a full run.
 HELPERS = ["regions"]
 # Stages that exist so far; the rest are added stage by stage.
-BUILT = {"check", "ingest", "detect", "review", "regions"}
+BUILT = {"check", "ingest", "detect", "review", "music", "edl", "regions"}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -89,6 +89,21 @@ def run_pipeline(args: argparse.Namespace) -> int:
                 ready = review(cfg, system)
             if not ready:
                 break
+        elif stage == "music":
+            from .edl import decide_length
+            from .music import build_beatmap
+            from .review import load_selections
+            with StageTimer("Stage 4a: Music and beat map"):
+                build_beatmap(cfg, system, decide_length(cfg, load_selections(cfg)))
+        elif stage == "edl":
+            from .edl import run_edl
+            from .review import load_selections
+            from .utils import read_json
+            bm = read_json(cfg.work / "beatmap.json")
+            if not bm:
+                raise MontageError("No beat map yet - run  python -m src.main --stage music  first.")
+            with StageTimer("Stage 4b: Edit decision list"):
+                run_edl(cfg, load_selections(cfg), bm)
         elif stage == "regions":
             from .ingest import load_ingested
             from .regions import regions_helper
