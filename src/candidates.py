@@ -289,7 +289,10 @@ def detect(cfg: Config, videos: list[dict]) -> list[dict]:
         c["score"] = round(100 * c["value"] / top_value, 1)
         c["top"] = rank <= det["max_candidates"]
 
+    # Identifies this exact candidate list, so a review of an older list is never reused.
+    run_id = _key([(c["id"], c["video"], c["start"], c["end"]) for c in all_clips])
     write_json(cfg.work / "candidates.json", {
+        "run_id": run_id,
         "generated": datetime.now().isoformat(timespec="seconds"),
         "game": cfg.game,
         "detection": det,

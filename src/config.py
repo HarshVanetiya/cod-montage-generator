@@ -15,7 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Keys every config.yaml must have. A clear error beats a KeyError deep in a stage.
 REQUIRED = [
-    "game", "platform", "style", "paths", "hardware", "ingest", "detection",
+    "game", "platform", "style", "paths", "hardware", "ingest", "detection", "review",
     "regions", "music", "montage", "platforms", "styles", "render",
 ]
 

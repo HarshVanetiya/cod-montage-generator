@@ -126,6 +126,16 @@ regions:
     hitmarker:   [0.45, 0.42, 0.10, 0.16]
     medals:      [0.30, 0.15, 0.40, 0.25]
 
+# ---------- stage 3: review ----------
+review:
+  # Frames per contact sheet and how many per row.
+  frames: 8
+  columns: 4
+  # Width of each frame on the sheet (pixels).
+  tile_width: 480
+  # --auto mode: clips scoring below this (0-100) are dropped.
+  auto_min_score: 10
+
 # ---------- stage 4: music ----------
 music:
   # auto = rate every track in music/ (energy, drops, tempo, length fit)

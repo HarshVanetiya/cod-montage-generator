@@ -4,15 +4,15 @@ Drop your Call of Duty recordings into a folder, add some royalty‑free music, 
 command and get a finished montage synced to the beat. Works with **CoD Mobile**,
 Modern Warfare, Black Ops and Warzone recordings, and it all runs on your own PC.
 
-> **Build status:** Stages 1–2 of 5 are done (reading recordings, finding highlights).
-> Review, music sync, effects and rendering come in the next stages.
+> **Build status:** Stages 1–3 of 5 are done (reading recordings, finding highlights,
+> reviewing clips). Music sync, effects and rendering come in the next stages.
 
 | Stage | What it does | Status |
 |---|---|---|
 | 1. Ingest | Reads your recordings, makes small analysis copies | ✅ done |
 | 2. Detect | Finds kills, multi-kills and intense fights | ✅ done |
-| 3. Review | Contact sheets of the best clips (optional Claude review) | ⏳ next |
-| 4. Music + edit | Beat detection, picks the song, builds the timeline | ⏳ |
+| 3. Review | Contact sheets of the best clips (optional Claude review) | ✅ done |
+| 4. Music + edit | Beat detection, picks the song, builds the timeline | ⏳ next |
 | 5. Effects + render | Slow‑mo, zooms, transitions, colour, final video | ⏳ |
 
 ---
@@ -89,6 +89,20 @@ $env:MONTAGE_STYLE = "hype"
 ```
 Priority: command line → environment variable → `config.yaml`.
 
+### The review step
+After finding highlights, the tool makes a **contact sheet** (8 frames in a grid) for each
+of the top 40 clips in `review\`, and pauses. You then choose one of these:
+
+- **Let Claude review them:** open Claude Code in the project folder and say
+  *"review the montage clips"*. Claude looks at every sheet, rejects menus, deaths and
+  boring bits, rates the rest, and saves its picks. Then run your command again and it
+  carries on from there.
+- **Skip it:** add `--auto` and the computed scores decide.
+- **Do it yourself:** edit `work\selections.json` (the format is at the top of `src\review.py`).
+
+On the sheets, a red border means a kill was detected near that frame, and yellow marks
+the key moment.
+
 ### Music choice
 With no `--music`, the tool listens to every track in `music\` and picks the one that
 fits best (energy, drops, tempo, length), rotating so you don't get the same song every
@@ -99,6 +113,7 @@ time. It never downloads music.
 python -m src.main --stage check    # just check FFmpeg / GPU
 python -m src.main --stage ingest   # just read recordings and make proxies
 python -m src.main --stage detect   # just find highlight candidates
+python -m src.main --stage review   # just make the contact sheets
 python -m src.main --stage regions  # draw the kill-detection boxes on your footage
 python -m src.main --force          # redo everything, ignoring the cache
 python -m src.main -v               # show extra detail

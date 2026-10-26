@@ -81,12 +81,27 @@ Ranked roughly best first:
 - When cropping vertically, important HUD moments (kill feed, medals) may be shown as a brief inset.
 
 ### Reviewing clips (Claude review step)
-When asked to review, open the contact sheets in `review/` and, for each clip:
-- Is it real action? Any excluded content (menu, death, killcam, spectating)?
-- Rate 1–10 for impressiveness; tag it: `multikill`, `snipe`, `clutch`,
-  `funny`, `streak`, `filler`, `reject`.
-- Write picks to `work/selections.json` (format defined in `src/review.py`).
-- Be strict: rejecting a weak clip makes the montage better.
+When the user asks to "review the montage clips":
+1. Read `review/index.md` (clip list + the current `candidates_run_id`).
+2. Open **every** `review/cNNN.jpg`. Each sheet shows 8 frames across the clip;
+   red border = near a detected kill, yellow = the key moment. Header has score,
+   kills, multi-kill count, recording and time range.
+3. For each clip decide:
+   - Is it real action? Reject menus, lobbies, loading, deaths/killcams, spectating,
+     empty footage, and false alarms (loud audio with nothing on screen).
+   - Rating 1-10 for impressiveness, and tags: `multikill`, `snipe`, `clutch`,
+     `funny`, `streak`, `kill`, `action`, `filler`.
+   - Optional trims: `start` / `end` (seconds in the recording) to cut dead lead-in,
+     `key_time` if the real kill moment differs from the detected one.
+4. Write `work/selections.json`:
+   ```json
+   {"candidates_run_id": "<from index.md>", "reviewer": "claude",
+    "clips": [{"id": "c001", "keep": true, "rating": 9, "tags": ["multikill"],
+               "note": "why", "start": 16.0}]}
+   ```
+   Clips left out count as rejected. Be strict: a rejected weak clip makes a better montage.
+5. Tell the user how many were kept and the standouts, and say to rerun their command.
+   Be honest in notes about any sheet you didn't open.
 
 ---
 
@@ -116,11 +131,13 @@ src/ingest.py        stage 1: probe, proxies, audio
 src/audio_score.py   stage 2: loudness + gunfire density per second (chunked WAV reads)
 src/visual_score.py  stage 2: per-frame HUD features, kill/hitmarker events, menu/death exclusion
 src/candidates.py    stage 2: per-second score, clip building, ranking -> candidates.json
+src/review.py        stage 3: contact sheets, index.md, selections (auto/claude/manual)
 src/regions.py       helper: draws HUD regions on real frames (review/regions/)
 src/utils.py         logging, json cache, ffmpeg progress runner
 ```
 Cache layout: `work/videos/<id>/{meta.json, proxy.mp4, audio.wav, audio.npz, visual.npz,
-analysis.json, signals.csv}`, `work/ingest.json`, `work/candidates.json`.
+analysis.json, signals.csv}`, `work/ingest.json`, `work/candidates.json` (with `run_id`),
+`work/sheets/<hash>.jpg` (sheet cache), `work/selections.json`.
 
 Detection design: kills are found without game-specific templates. HUD overlays stay
 still while the world moves, so a jump in *stable edges* inside a HUD region (minus any

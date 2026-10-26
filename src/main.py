@@ -20,7 +20,7 @@ STAGES = ["check", "ingest", "detect", "review", "music", "edl", "render"]
 # Helpers that can be run with --stage but aren't part of a full run.
 HELPERS = ["regions"]
 # Stages that exist so far; the rest are added stage by stage.
-BUILT = {"check", "ingest", "detect", "regions"}
+BUILT = {"check", "ingest", "detect", "review", "regions"}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -83,6 +83,12 @@ def run_pipeline(args: argparse.Namespace) -> int:
             from .ingest import load_ingested
             with StageTimer("Stage 2: Candidate detection"):
                 detect(cfg, videos or load_ingested(cfg))
+        elif stage == "review":
+            from .review import review
+            with StageTimer("Stage 3: Review"):
+                ready = review(cfg, system)
+            if not ready:
+                break
         elif stage == "regions":
             from .ingest import load_ingested
             from .regions import regions_helper
