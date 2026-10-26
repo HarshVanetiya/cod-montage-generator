@@ -19,6 +19,13 @@ REQUIRED = [
     "regions", "music", "montage", "platforms", "styles", "render",
 ]
 
+DETECTION_KEYS = [
+    "weight_audio", "weight_kills", "multikill_min_kills", "multikill_window", "multikill_bonus",
+    "lead_in", "lead_out", "merge_gap", "max_clip_len", "max_candidates", "kill_z", "hitmarker_z",
+    "event_debounce", "audio_peak", "static_motion", "static_min_seconds", "dark_level",
+    "uniform_std", "desat_ratio", "scene_threshold",
+]
+
 ENV_OVERRIDES = {
     "MONTAGE_PLATFORM": "platform",
     "MONTAGE_STYLE": "style",
@@ -181,6 +188,11 @@ def _validate(cfg: Config) -> None:
                 f"Region '{name}' for game '{cfg.game}' = {box} goes outside the screen.\n"
                 "Values are fractions of the screen (0.0 to 1.0) and x+width, y+height must be <= 1."
             )
+
+    missing = [k for k in DETECTION_KEYS if k not in cfg.raw["detection"]]
+    if missing:
+        raise MontageError(f"config.yaml 'detection' is missing: {', '.join(missing)}.\n"
+                           "Copy them back from the original config.yaml.")
 
     enc = cfg.raw["hardware"].get("encoder", "auto")
     if enc not in ("auto", "nvenc", "qsv", "amf", "x264"):

@@ -308,3 +308,18 @@ def check_music_folder(cfg: Config) -> None:
                     "before the music stage - see README for free sources.", music)
     else:
         log.info("Music folder: %d track(s)", len(tracks))
+
+
+def load_ingested(cfg: Config) -> list[dict]:
+    """Metadata of recordings from the last ingest (for running later stages alone)."""
+    index = read_json(cfg.work / "ingest.json")
+    if not index:
+        raise MontageError("No ingested recordings yet - run  python -m src.main --stage ingest  first.")
+    metas = []
+    for vid in index["videos"]:
+        meta = read_json(cfg.work / "videos" / vid / "meta.json")
+        if meta and meta.get("ingest_done") and Path(meta["source"]).exists():
+            metas.append(meta)
+    if not metas:
+        raise MontageError("The ingest cache is out of date - run  python -m src.main --stage ingest  again.")
+    return metas

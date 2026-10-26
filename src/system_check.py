@@ -54,6 +54,7 @@ STAGE_PACKAGES = {
     "detect": [("cv2", "opencv-python-headless"), ("scenedetect", "scenedetect"),
                ("librosa", "librosa"), ("soundfile", "soundfile")],
     "review": [("cv2", "opencv-python-headless")],
+    "regions": [("cv2", "opencv-python-headless")],
     "music": [("librosa", "librosa"), ("soundfile", "soundfile")],
 }
 

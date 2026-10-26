@@ -4,14 +4,14 @@ Drop your Call of Duty recordings into a folder, add some royalty‑free music, 
 command and get a finished montage synced to the beat. Works with **CoD Mobile**,
 Modern Warfare, Black Ops and Warzone recordings, and it all runs on your own PC.
 
-> **Build status:** Stage 1 of 5 is done (setup, settings, reading your recordings).
-> Highlight detection, music sync, effects and rendering come in the next stages.
+> **Build status:** Stages 1–2 of 5 are done (reading recordings, finding highlights).
+> Review, music sync, effects and rendering come in the next stages.
 
 | Stage | What it does | Status |
 |---|---|---|
 | 1. Ingest | Reads your recordings, makes small analysis copies | ✅ done |
-| 2. Detect | Finds kills, multi-kills and intense fights | ⏳ next |
-| 3. Review | Contact sheets of the best clips (optional Claude review) | ⏳ |
+| 2. Detect | Finds kills, multi-kills and intense fights | ✅ done |
+| 3. Review | Contact sheets of the best clips (optional Claude review) | ⏳ next |
 | 4. Music + edit | Beat detection, picks the song, builds the timeline | ⏳ |
 | 5. Effects + render | Slow‑mo, zooms, transitions, colour, final video | ⏳ |
 
@@ -98,9 +98,27 @@ time. It never downloads music.
 ```powershell
 python -m src.main --stage check    # just check FFmpeg / GPU
 python -m src.main --stage ingest   # just read recordings and make proxies
+python -m src.main --stage detect   # just find highlight candidates
+python -m src.main --stage regions  # draw the kill-detection boxes on your footage
 python -m src.main --force          # redo everything, ignoring the cache
 python -m src.main -v               # show extra detail
 ```
+
+### Tuning kill detection for your game
+The tool spots kills by watching a few areas of the screen (kill feed, kill popup,
+medals, hitmarker). Each game's HUD is different, so check the boxes once:
+
+1. Run `python -m src.main --stage regions`.
+2. Open the images in `review\regions\`. Each one shows a 0.1 grid and the coloured boxes.
+   You can also drop your own screenshots into a `samples\` folder and they get boxes too.
+3. If a box misses its HUD element, read the new position off the grid and edit
+   `regions:` → your game in `config.yaml` as `[x, y, width, height]`
+   (fractions of the screen, from the top-left corner).
+4. Run `python -m src.main --stage detect` again. Only the changed part is redone.
+
+Finding too many or too few kills? Change `kill_z` in `config.yaml` (higher = stricter).
+Every recording gets a `work\videos\<name>\signals.csv` you can open in Excel to see
+the score for every second.
 
 ---
 
@@ -143,7 +161,8 @@ assets/    your recordings (never modified)
 music/     your royalty-free tracks
 overlays/  optional intro / outro / logo
 work/      cache (safe to delete)
-review/    clip contact sheets
+review/    clip contact sheets + region check images
+samples/   optional screenshots for checking the regions
 output/    finished montages
 src/       the code
 config.yaml  all settings

@@ -68,7 +68,34 @@ detection:
   lead_out: 1.5
   # Highlights closer than this are merged into one clip.
   merge_gap: 3.0
+  # Longest candidate clip; longer action keeps its best-scoring window.
+  max_clip_len: 15
+  # How many top clips go to the review step.
   max_candidates: 40
+
+  # --- event thresholds (higher = stricter). Tune with work/videos/<name>/signals.csv
+  # Kill indicator strength needed to count a kill (robust z-score).
+  kill_z: 5.0
+  # Same for hitmarkers around the crosshair.
+  hitmarker_z: 5.0
+  # Two kill events closer than this are treated as one.
+  event_debounce: 1.0
+  # Loud fights without a detected kill still become clips above this (0-1).
+  audio_peak: 0.85
+
+  # --- excluding menus, loading screens, death screens
+  # Average pixel change per frame (0-255) below which the screen counts as frozen.
+  static_motion: 1.0
+  # ...for at least this long.
+  static_min_seconds: 3
+  # Brightness (0-255) below which a frame counts as black/loading.
+  dark_level: 18
+  # Contrast below which a frame counts as a flat colour screen.
+  uniform_std: 8
+  # Saturation below this fraction of the recording's normal = grey death/spectate screen.
+  desat_ratio: 0.45
+  # PySceneDetect sensitivity for hard cuts (lower = more cuts).
+  scene_threshold: 27
 
 # Screen regions: [x, y, width, height] from the top-left corner.
 # These are starting guesses - they get tuned on real footage in stage 2.

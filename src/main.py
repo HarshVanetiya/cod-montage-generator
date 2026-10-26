@@ -17,8 +17,10 @@ from .config import load_config
 from .utils import MontageError, StageTimer, log, setup_logging
 
 STAGES = ["check", "ingest", "detect", "review", "music", "edl", "render"]
+# Helpers that can be run with --stage but aren't part of a full run.
+HELPERS = ["regions"]
 # Stages that exist so far; the rest are added stage by stage.
-BUILT = {"check", "ingest"}
+BUILT = {"check", "ingest", "detect", "regions"}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -26,8 +28,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         prog="python -m src.main",
         description="Turn Call of Duty recordings in assets/ into a music-synced montage.",
     )
-    p.add_argument("--stage", choices=STAGES + ["all"], default="all",
-                   help="run only this stage (default: all)")
+    p.add_argument("--stage", choices=STAGES + HELPERS + ["all"], default="all",
+                   help="run only this stage (default: all); 'regions' draws the HUD "
+                        "boxes on your footage for tuning")
     p.add_argument("--auto", action="store_true",
                    help="skip the Claude review step and use computed scores only")
     p.add_argument("--preview", action="store_true", help="fast, lower-resolution test render")
@@ -58,6 +61,7 @@ def run_pipeline(args: argparse.Namespace) -> int:
 
     stages = STAGES[1:] if args.stage == "all" else [args.stage]
     check_packages(["ingest"] + [s for s in stages if s in BUILT])
+    videos = None
 
     with StageTimer("System check"):
         system = check_system(cfg)
@@ -72,8 +76,18 @@ def run_pipeline(args: argparse.Namespace) -> int:
         if stage == "ingest":
             from .ingest import check_music_folder, ingest
             with StageTimer("Stage 1: Ingest"):
-                ingest(cfg, system)
+                videos = ingest(cfg, system)
                 check_music_folder(cfg)
+        elif stage == "detect":
+            from .candidates import detect
+            from .ingest import load_ingested
+            with StageTimer("Stage 2: Candidate detection"):
+                detect(cfg, videos or load_ingested(cfg))
+        elif stage == "regions":
+            from .ingest import load_ingested
+            from .regions import regions_helper
+            with StageTimer("Region helper"):
+                regions_helper(cfg, system, load_ingested(cfg))
     return 0
 
 

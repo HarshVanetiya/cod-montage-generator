@@ -113,6 +113,17 @@ src/main.py          CLI and stage runner
 src/config.py        config.yaml loading, env/CLI overrides, validation
 src/system_check.py  FFmpeg detection, encoder selection, package checks
 src/ingest.py        stage 1: probe, proxies, audio
+src/audio_score.py   stage 2: loudness + gunfire density per second (chunked WAV reads)
+src/visual_score.py  stage 2: per-frame HUD features, kill/hitmarker events, menu/death exclusion
+src/candidates.py    stage 2: per-second score, clip building, ranking -> candidates.json
+src/regions.py       helper: draws HUD regions on real frames (review/regions/)
 src/utils.py         logging, json cache, ffmpeg progress runner
 ```
-Cache layout: `work/videos/<id>/{meta.json, proxy.mp4, audio.wav}`, `work/ingest.json`.
+Cache layout: `work/videos/<id>/{meta.json, proxy.mp4, audio.wav, audio.npz, visual.npz,
+analysis.json, signals.csv}`, `work/ingest.json`, `work/candidates.json`.
+
+Detection design: kills are found without game-specific templates. HUD overlays stay
+still while the world moves, so a jump in *stable edges* inside a HUD region (minus any
+whole-frame freeze) means a new HUD element appeared; red/gold colour pops add evidence.
+Thresholds are robust z-scores per recording. Raw per-frame features are cached and keyed
+by the regions, so tuning thresholds never re-reads video.
