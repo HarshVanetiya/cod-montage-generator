@@ -1,0 +1,114 @@
+# ============================================================
+#  CoD Montage Generator - settings
+#  Every value here has a built-in default, so you can delete
+#  any line you don't care about. Times are in seconds.
+# ============================================================
+
+# Which game the recordings are from. Picks the screen-region
+# preset below. Options: codm, mw, bo, warzone, generic
+game: codm
+
+# Your name / channel name for the intro title card (stage 5).
+gamer_name: "Player"
+
+# ---------- folders (relative to this file) ----------
+paths:
+  assets: assets
+  music: music
+  overlays: overlays
+  work: work
+  review: review
+  output: output
+
+# ---------- hardware ----------
+hardware:
+  # auto = try NVIDIA (nvenc) -> Intel Quick Sync (qsv) -> AMD (amf) -> CPU (x264)
+  # or force one of: nvenc, qsv, amf, x264
+  encoder: auto
+  # Use the GPU to decode recordings when possible (falls back to CPU per file).
+  hw_decode: true
+  # Full path to ffmpeg.exe if it isn't on PATH, e.g. "C:/ffmpeg/bin/ffmpeg.exe"
+  ffmpeg_path: ""
+
+# ---------- stage 1: ingest ----------
+ingest:
+  extensions: [".mp4", ".mkv", ".mov", ".webm", ".avi", ".ts"]
+  # Small copies used only for analysis. The short side is scaled to this.
+  proxy_height: 480
+  # Frames per second in the proxy. 10 is enough to catch hitmarkers.
+  proxy_fps: 10
+  # Audio extracted for analysis (mono).
+  audio_sample_rate: 22050
+  # Skip recordings shorter than this (seconds).
+  min_duration: 10
+
+# ---------- stage 2: candidate detection ----------
+detection:
+  # Weights for the per-second score (they don't need to add up to 1).
+  weight_audio: 1.0
+  weight_kills: 2.0
+  # Multi-kill: this many kills inside this window gets a bonus.
+  multikill_min_kills: 2
+  multikill_window: 6.0
+  multikill_bonus: 3.0
+  # Clip padding around a highlight.
+  lead_in: 2.5
+  lead_out: 1.5
+  # Highlights closer than this are merged into one clip.
+  merge_gap: 3.0
+  max_candidates: 40
+
+# Screen regions as fractions of the frame: [x, y, width, height],
+# measured from the top-left corner (0.0 - 1.0). They work at any
+# resolution. These presets are starting points - tune them with
+# `python -m src.main --stage regions` (added in stage 2).
+regions:
+  codm:
+    kill_feed:      [0.00, 0.30, 0.28, 0.25]   # left side, under the minimap
+    kill_banner:    [0.35, 0.55, 0.30, 0.20]   # skull / "+100" popup below crosshair
+    hitmarker:      [0.46, 0.44, 0.08, 0.12]   # around the crosshair
+    medals:         [0.35, 0.15, 0.30, 0.20]
+  mw:
+    kill_feed:      [0.00, 0.62, 0.30, 0.20]
+    kill_banner:    [0.40, 0.55, 0.20, 0.15]
+    hitmarker:      [0.46, 0.44, 0.08, 0.12]
+    medals:         [0.38, 0.62, 0.24, 0.18]
+  bo:
+    kill_feed:      [0.00, 0.62, 0.30, 0.20]
+    kill_banner:    [0.40, 0.55, 0.20, 0.15]
+    hitmarker:      [0.46, 0.44, 0.08, 0.12]
+    medals:         [0.38, 0.62, 0.24, 0.18]
+  warzone:
+    kill_feed:      [0.00, 0.62, 0.30, 0.20]
+    kill_banner:    [0.40, 0.55, 0.20, 0.15]
+    hitmarker:      [0.46, 0.44, 0.08, 0.12]
+    medals:         [0.38, 0.62, 0.24, 0.18]
+  generic:
+    kill_feed:      [0.00, 0.30, 0.30, 0.50]
+    kill_banner:    [0.30, 0.50, 0.40, 0.25]
+    hitmarker:      [0.45, 0.42, 0.10, 0.16]
+    medals:         [0.30, 0.15, 0.40, 0.25]
+
+# ---------- stage 4: music ----------
+music:
+  # auto = the tool rates every track in music/ and picks the best fit
+  # (energy, drops, length), rotating between runs. Or put a filename here.
+  pick: auto
+  crossfade: 3.0
+
+# ---------- stage 5: montage + render ----------
+montage:
+  target_length: 270        # 4.5 minutes
+  min_clip: 3.0
+  max_clip: 10.0
+
+render:
+  width: 1920
+  height: 1080
+  fps: 30
+  audio_bitrate: 192k
+  loudness_lufs: -14
+  preview:
+    width: 1280
+    height: 720
+    fps: 30
