@@ -4,8 +4,8 @@ Drop your Call of Duty recordings into a folder, add some royalty‑free music, 
 command and get a finished montage synced to the beat. Works with **CoD Mobile**,
 Modern Warfare, Black Ops and Warzone recordings, and it all runs on your own PC.
 
-> **Build status:** Stages 1–4 of 5 are done (reading recordings, finding highlights,
-> reviewing clips, music sync and the edit timeline). Effects and rendering come next.
+> **Status:** all 5 stages are built. Kill detection uses starting-guess screen regions;
+> check them once on your own footage (see *Tuning kill detection* below).
 
 | Stage | What it does | Status |
 |---|---|---|
@@ -13,7 +13,7 @@ Modern Warfare, Black Ops and Warzone recordings, and it all runs on your own PC
 | 2. Detect | Finds kills, multi-kills and intense fights | ✅ done |
 | 3. Review | Contact sheets of the best clips (optional Claude review) | ✅ done |
 | 4. Music + edit | Beat detection, picks the song, builds the timeline | ✅ done |
-| 5. Effects + render | Slow‑mo, zooms, transitions, colour, final video | ⏳ next |
+| 5. Effects + render | Slow‑mo, zooms, transitions, colour, final video | ✅ done |
 
 ---
 
@@ -128,6 +128,7 @@ python -m src.main --stage detect   # just find highlight candidates
 python -m src.main --stage review   # just make the contact sheets
 python -m src.main --stage music    # just pick the song and find beats/drops
 python -m src.main --stage edl      # just build the timeline (work\edl.json)
+python -m src.main --stage render   # just render the timeline to output\
 python -m src.main --stage regions  # draw the kill-detection boxes on your footage
 python -m src.main --force          # redo everything, ignoring the cache
 python -m src.main -v               # show extra detail
@@ -161,12 +162,44 @@ Don't use songs you don't have rights to; YouTube and Instagram will mute or blo
 
 ---
 
+### Effects and the final video
+The finished video is saved as `output\montage_YYYYMMDD_HHMM.mp4` (Shorts/Reels get the
+platform in the name, previews end in `_preview`). Earlier videos are never overwritten.
+
+What the styles do:
+
+| | cinematic (default) | hype | clean |
+|---|---|---|---|
+| Slow motion on top kills (kill stays on the beat) | most | some | rare |
+| Slow-mo into the first drop | ✓ | ✓ | ✓ |
+| Zoom punch on a big beat | a few | often | – |
+| Camera shake on big kicks | – | ✓ | – |
+| Transitions on drops (flash / whip / blur) | flash, blur | all three | flash |
+| Letterbox bars and vignette | ✓ | – | – |
+| "DOUBLE / TRIPLE KILL" text | – | ✓ | – |
+| Music cuts out right before a big kill | ✓ | ✓ | – |
+
+Always: a light colour grade, game audio under the music with gunshots poking through,
+fade in and out, and loudness evened out to about −14 LUFS (what YouTube expects).
+Every amount is in `config.yaml` under `styles:` and `render:`.
+
+**Optional extras in `overlays\`:**
+- `intro.mp4` / `outro.mp4` (or .mov/.mkv/.webm): played before/after the montage.
+- `logo.png`: shown small in the top-right corner (size and opacity in `config.yaml`).
+- Set `gamer_name` in `config.yaml` to show your name as a title over the first clip
+  (skipped when you have an intro video).
+
+**Quick test first:** `python -m src.main --preview` renders a 720p version fast. Clips are
+cached, so after a preview or a small change only the changed clips are re-rendered.
+
 ## 4. Good to know
 
 - **Speed:** the tool uses your graphics hardware when it can (Intel Quick Sync, NVIDIA
   or AMD), otherwise the CPU. `--stage check` shows which one it picked.
-- **Memory:** recordings are processed one at a time from small 480p copies, so 8 GB RAM
-  is enough even for hour‑long files.
+- **Memory:** recordings are processed one at a time from small 480p copies, and the final
+  video is rendered one clip at a time, so 8 GB RAM is enough even for hour‑long files.
+- **Vertical videos** (Shorts/Reels/TikTok) are a centre crop around the crosshair, so the
+  kill feed at the screen edge is cut off. (Showing it as an inset isn't built yet.)
 - **Disk:** the `work\` folder holds about 400–500 MB of cache per hour of footage. It's
   safe to delete any time; it just makes the next run slower.
 - **Phone recordings** (CoD Mobile) with variable frame rate or rotation are handled

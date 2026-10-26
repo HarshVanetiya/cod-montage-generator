@@ -214,6 +214,7 @@ platforms:
 # ---------- styles ----------
 # slowmo_speed: playback speed of slow motion (0.5 = half speed)
 # slowmo_share: fraction of clips that get a slow-mo kill moment
+# slowmo_length: seconds of slow motion around the kill (on the timeline)
 # zoom_punch: zoom amount on big beats (1.0 = off); zoom_share: how often
 # shake: camera shake on big kicks (0 = off)
 # transitions: which transitions may be used on drops (hard cuts elsewhere)
@@ -222,6 +223,7 @@ platforms:
 # music_dropout: cut the music for a moment right before a big kill
 styles:
   cinematic:
+    slowmo_length: 1.6
     slowmo_speed: 0.4
     slowmo_share: 0.35
     zoom_punch: 1.06
@@ -236,6 +238,7 @@ styles:
     music_dropout: true
     pace: 0.85
   hype:
+    slowmo_length: 1.0
     slowmo_speed: 0.5
     slowmo_share: 0.2
     zoom_punch: 1.10
@@ -250,6 +253,7 @@ styles:
     music_dropout: true
     pace: 1.25
   clean:
+    slowmo_length: 1.0
     slowmo_speed: 0.5
     slowmo_share: 0.1
     zoom_punch: 1.0
@@ -274,6 +278,23 @@ render:
   # Game audio level under the music (0-1) and how much gunshot peaks poke through.
   game_audio_level: 0.25
   game_audio_peaks: 0.5
+  # Recording wider/taller than a landscape output: crop to fill, or pad with bars.
+  landscape_fit: crop
+  # Shape of the cinematic letterbox bars (width / height of the visible picture).
+  letterbox_ratio: 2.2
+  # Music silence right before a big kill (style music_dropout) and how many per video.
+  dropout_seconds: 0.45
+  max_dropouts: 3
+  # Fade in from black at the start and out at the end (seconds).
+  fade_in: 0.5
+  fade_out: 1.2
+  # Intro title with gamer_name: auto = only when gamer_name isn't "Player".
+  title_card: auto
+  # .ttf font for titles and popups ("" = find a bold system font automatically).
+  font: ""
+  # overlays/logo.png: size as a fraction of the video width, and opacity.
+  logo_size: 0.08
+  logo_opacity: 0.8
   preview:
     scale: 0.6667          # 1080p -> 720p
     fps: 30

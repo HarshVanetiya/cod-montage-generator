@@ -135,13 +135,17 @@ src/review.py        stage 3: contact sheets, index.md, selections (auto/claude/
 src/music.py         stage 4: track analysis (beats, downbeats, drops, sections), auto-pick,
                      soundtrack plan (start before first drop, phrase-aligned end, chaining)
 src/edl.py           stage 4: auto length, beat-synced timeline with roles -> edl.json
+src/effects.py       stage 5: per-clip effect plan (slow-mo pieces, zoom, shake, transitions,
+                     popups, music dropouts, title) -> effects.json
+src/render.py        stage 5: per-clip segments, audio mix + two-pass loudnorm, concat -> output/
 src/regions.py       helper: draws HUD regions on real frames (review/regions/)
 src/utils.py         logging, json cache, ffmpeg progress runner
 ```
 Cache layout: `work/videos/<id>/{meta.json, proxy.mp4, audio.wav, audio.npz, visual.npz,
 analysis.json, signals.csv}`, `work/ingest.json`, `work/candidates.json` (with `run_id`),
 `work/sheets/<hash>.jpg` (sheet cache), `work/selections.json`, `work/music/<track>.{json,wav}`
-(track analysis), `work/music/history.json` (rotation), `work/beatmap.json`, `work/edl.json`.
+(track analysis), `work/music/history.json` (rotation), `work/beatmap.json`, `work/edl.json`,
+`work/effects.json`, `work/render/seg_<hash>.mkv` (segment cache), `work/render/mix.wav`.
 All beatmap/EDL times are montage-timeline seconds; `src_in/src_out` are recording seconds.
 
 Detection design: kills are found without game-specific templates. HUD overlays stay
@@ -158,3 +162,13 @@ Music design: librosa beats, extended across quiet intros/outros at the regressi
 Drops = beats where the next 2 bars are much louder than the previous 2 (refined to the
 sharpest single-beat rise); drops fix the bar phase (they start on bar 1). EDL slot
 roles: build (before first drop), hook, drop, peak, breather, finale.
+
+Render design: each EDL clip is one FFmpeg job (input-seeked, so only that stretch is
+decoded) -> `seg_<hash>.mkv` (video encoded once, PCM game audio). Speed ramps are ONE
+piecewise `setpts` expression (never split+trim on video: that buffers whole clips of
+frames). Slow-mo keeps the key kill anchored at `key_tl`, so it stays on its beat; other
+kills in that clip shift. Filter order: speed -> fps -> fit/crop -> grade -> zoom/shake ->
+transition -> text -> letterbox -> fades. Segments are joined with the concat demuxer
+(`-c:v copy`), audio is mixed separately (music adelay'd per track, sidechain duck,
+dropouts) and normalised with two-pass loudnorm. Frame counts come from rounding
+`tl_start/tl_end * fps`, so cuts never drift.

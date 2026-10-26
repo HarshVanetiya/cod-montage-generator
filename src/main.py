@@ -19,8 +19,6 @@ from .utils import MontageError, StageTimer, log, setup_logging
 STAGES = ["check", "ingest", "detect", "review", "music", "edl", "render"]
 # Helpers that can be run with --stage but aren't part of a full run.
 HELPERS = ["regions"]
-# Stages that exist so far; the rest are added stage by stage.
-BUILT = {"check", "ingest", "detect", "review", "music", "edl", "regions"}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -60,7 +58,7 @@ def run_pipeline(args: argparse.Namespace) -> int:
     from .system_check import check_packages, check_system
 
     stages = STAGES[1:] if args.stage == "all" else [args.stage]
-    check_packages(["ingest"] + [s for s in stages if s in BUILT])
+    check_packages(["ingest"] + stages)
     videos = None
 
     with StageTimer("System check"):
@@ -69,10 +67,6 @@ def run_pipeline(args: argparse.Namespace) -> int:
         return 0
 
     for stage in stages:
-        if stage not in BUILT:
-            log.info("\nStage '%s' isn't built yet - stopping here. "
-                     "(Finished stages are cached in work/.)", stage)
-            break
         if stage == "ingest":
             from .ingest import check_music_folder, ingest
             with StageTimer("Stage 1: Ingest"):
@@ -104,6 +98,14 @@ def run_pipeline(args: argparse.Namespace) -> int:
                 raise MontageError("No beat map yet - run  python -m src.main --stage music  first.")
             with StageTimer("Stage 4b: Edit decision list"):
                 run_edl(cfg, load_selections(cfg), bm)
+        elif stage == "render":
+            from .render import render
+            from .utils import read_json
+            edl = read_json(cfg.work / "edl.json")
+            if not edl:
+                raise MontageError("No timeline yet - run  python -m src.main --stage edl  first.")
+            with StageTimer("Stage 5: Effects and render"):
+                render(cfg, system, edl)
         elif stage == "regions":
             from .ingest import load_ingested
             from .regions import regions_helper
