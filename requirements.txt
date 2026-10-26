@@ -1,0 +1,10 @@
+# Core (stage 1)
+numpy>=1.26
+PyYAML>=6.0
+tqdm>=4.66
+
+# Analysis (stages 2-4)
+opencv-python-headless>=4.9
+scenedetect>=0.6.4
+librosa>=0.10.2
+soundfile>=0.12
